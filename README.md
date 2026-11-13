@@ -138,14 +138,14 @@ docker compose down -v
 The Android client currently sends requests to:
 
 ```text
-http://192.168.1.116:5000/sms
+http://YOUR-IP-ADDRESS/sms
 ```
 
 Update the URL in [`CategoryActivity.kt`](C:/Users/agrim/Downloads/expense_tracker_android/app/src/main/java/com/example/expensetracker/CategoryActivity.kt) before building if the backend computer has a different LAN address.
 
 Common development values:
 
-- Physical device: use the computer's LAN IP address, for example `http://192.168.1.50:5000/sms`.
+- Physical device: use the computer's LAN IP address, for example `http://YOUR-IP-ADDRESS/sms`.
 - Android emulator: use `http://10.0.2.2:5000/sms` to reach the host computer.
 - Do not use `localhost` from a physical device; it refers to the device itself.
 
