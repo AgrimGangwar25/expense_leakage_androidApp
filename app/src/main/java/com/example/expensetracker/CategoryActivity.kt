@@ -39,9 +39,6 @@ class CategoryActivity : AppCompatActivity() {
 
             saveExpenseLocally(amount, isEssential, category)
             sendToServer(sender, message, amount, isEssential, category)
-
-            Toast.makeText(this, "Expense Saved!", Toast.LENGTH_SHORT).show()
-            finish()
         }
     }
 
@@ -80,10 +77,15 @@ class CategoryActivity : AppCompatActivity() {
                     .build()
 
                 client.newCall(request).execute().use { response ->
-                    // Log or handle response
+                    android.util.Log.d("ExpenseSync", "Server response: ${response.code}")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("ExpenseSync", "Failed to send: ${e.message}", e)
+            } finally {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    Toast.makeText(this@CategoryActivity, "Expense Saved!", Toast.LENGTH_SHORT).show()
+                    finish()
+                }
             }
         }
     }
