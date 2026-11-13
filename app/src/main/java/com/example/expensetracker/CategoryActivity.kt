@@ -34,6 +34,7 @@ class CategoryActivity : AppCompatActivity() {
         val btnSave = findViewById<com.google.android.material.button.MaterialButton>(R.id.btnSave)
 
         btnSave.setOnClickListener {
+            btnSave.isEnabled = false
             val isEssential = rgEssential.checkedRadioButtonId == R.id.rbEssential
             val category = spinnerCategory.selectedItem.toString()
 
