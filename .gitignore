@@ -1,0 +1,19 @@
+# Python / Flask
+venv/
+.venv/
+__pycache__/
+*.pyc
+.env
+
+# Android Studio
+.gradle/
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+local.properties
+*.iml
+.idea/
+
+# AWS Keys (Never upload private keys!)
+*.pem

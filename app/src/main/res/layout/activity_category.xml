@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="8dp"
+    android:layout_margin="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:id="@+id/tvTransactionAlert"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="New Transaction"
+            android:textAlignment="center"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="?attr/colorPrimary"
+            android:paddingBottom="16dp"/>
+
+        <TextView
+            android:id="@+id/tvTransactionDetails"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Details will appear here"
+            android:textAlignment="center"
+            android:textSize="16sp"
+            android:paddingBottom="24dp"/>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="?attr/dividerVertical"
+            android:layout_marginBottom="24dp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Classification"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:textColor="?android:textColorSecondary"
+            android:textAllCaps="true"
+            android:paddingBottom="8dp"/>
+
+        <RadioGroup
+            android:id="@+id/rgEssential"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:weightSum="2"
+            android:paddingBottom="24dp">
+            <RadioButton
+                android:id="@+id/rbEssential"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="Essential"
+                android:checked="true"
+                android:textColor="?android:textColorPrimary"/>
+            <RadioButton
+                android:id="@+id/rbNonEssential"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="Wasted"
+                android:textColor="?android:textColorPrimary"/>
+        </RadioGroup>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Category"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:textColor="?android:textColorSecondary"
+            android:textAllCaps="true"
+            android:paddingBottom="8dp"/>
+
+        <Spinner
+            android:id="@+id/spinnerCategory"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:entries="@array/expense_categories"
+            android:backgroundTint="?attr/colorPrimary"
+            android:padding="12dp"/>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSave"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="Save Transaction"
+            android:textSize="16sp"
+            app:cornerRadius="12dp"
+            android:layout_marginTop="32dp"/>
+
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

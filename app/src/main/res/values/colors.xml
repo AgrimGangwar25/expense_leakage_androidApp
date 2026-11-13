@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand Colors -->
+    <color name="primary">#2196F3</color>
+    <color name="primary_dark">#1976D2</color>
+    <color name="primary_light">#BBDEFB</color>
+    <color name="accent">#03DAC6</color>
+
+    <!-- Light Mode -->
+    <color name="background_light">#F8F9FA</color>
+    <color name="surface_light">#FFFFFF</color>
+    <color name="text_primary_light">#212121</color>
+    <color name="text_secondary_light">#757575</color>
+    <color name="divider_light">#DEE2E6</color>
+
+    <!-- Dark Mode -->
+    <color name="background_dark">#121212</color>
+    <color name="surface_dark">#1E1E1E</color>
+    <color name="text_primary_dark">#F8F9FA</color>
+    <color name="text_secondary_dark">#ADB5BD</color>
+    <color name="divider_dark">#2C2C2C</color>
+
+    <!-- Status Colors -->
+    <color name="essential_green">#43A047</color>
+    <color name="essential_bg">#E8F5E9</color>
+    <color name="leakage_red">#E53935</color>
+    <color name="leakage_bg">#FFEBEE</color>
+    <color name="unspent_gray">#455A64</color>
+    <color name="unspent_bg">#ECEFF1</color>
+</resources>

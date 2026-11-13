@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">Expense Leakage Tracker</string>
+    <string-array name="expense_categories">
+        <item>Food &amp; Dining</item>
+        <item>Transportation</item>
+        <item>Shopping</item>
+        <item>Bills &amp; Utilities</item>
+        <item>Entertainment</item>
+        <item>Groceries</item>
+        <item>Health</item>
+        <item>Education</item>
+        <item>Investments</item>
+        <item>Travel</item>
+        <item>Other</item>
+    </string-array>
+</resources>
