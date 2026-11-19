@@ -1,8 +1,8 @@
 # Expense Leakage Tracker
 
-Expense Leakage Tracker is an Android application that detects transaction SMS messages, lets the user classify each transaction, and highlights non-essential spending ("leakage"). The app provides a local dashboard and history view, and can synchronise categorized transactions to a Flask API backed by PostgreSQL.
+Expense Leakage Tracker is an Android application that detects transaction SMS messages, lets the user classify each transaction, and highlights non-essential spending ("leakage"). The app provides a local dashboard and history view, and can synchronise categorized transactions 24/7 to a containerized Flask and PostgreSQL backend hosted on **AWS EC2** with automated **GitHub Actions CI/CD**.
 
-> **Project status:** This is a working development project. The Android client currently uses a hard-coded backend URL and the backend configuration contains development credentials. Review the security notes before deploying outside a trusted development network.
+> **Project status:** A live cloud-deployed prototype featuring an Android client in Kotlin and a Dockerized backend on AWS EC2 (`t3.micro`).
 
 ## Features
 
@@ -70,6 +70,92 @@ The backend is in [`flask server/`](C:/Users/agrim/Downloads/expense_tracker_and
 - Docker image definition in [`Dockerfile`](C:/Users/agrim/Downloads/expense_tracker_android/flask%20server/Dockerfile)
 - PostgreSQL and Flask services in [`docker-compose.yml`](C:/Users/agrim/Downloads/expense_tracker_android/flask%20server/docker-compose.yml)
 
+### AWS deployment
+
+The production backend is hosted on an AWS EC2 `t3.micro` instance running Ubuntu 26.04.
+
+```text
+GitHub push to main
+    |
+    v
+GitHub Actions deploy workflow
+    |
+    | SSH using the EC2 secrets
+    v
+EC2 Elastic IP: 32.236.221.252
+    |
+    +--> git pull origin main
+    +--> docker compose up --build -d
+    +--> docker image prune -f
+            |
+            v
+    Flask API + PostgreSQL containers
+```
+
+The instance is assigned an AWS Elastic IP, so the public address remains stable across instance restarts and redeployments. The Flask API is exposed on port `5000`, and PostgreSQL is kept in the Docker network:
+
+| Service | Public/internal address | Purpose |
+| --- | --- | --- |
+| Flask API | `http://32.236.221.252:5000` | Receives Android expense requests |
+| Expense POST endpoint | `http://32.236.221.252:5000/sms` | Stores categorized expenses |
+| PostgreSQL | `db:5432` inside Docker Compose | Persists backend expenses |
+
+The Android client is configured to use the Elastic IP in [`CategoryActivity.kt`](C:/Users/agrim/Downloads/expense_tracker_android/app/src/main/java/com/example/expensetracker/CategoryActivity.kt).
+
+## GitHub Actions CI/CD
+
+The deployment workflow is [`deploy.yml`](C:/Users/agrim/Downloads/expense_tracker_android/.github/workflows/deploy.yml). It runs when a commit is pushed to `main` and changes either:
+
+- anything under [`flask server/`](C:/Users/agrim/Downloads/expense_tracker_android/flask%20server)
+- [`.github/workflows/deploy.yml`](C:/Users/agrim/Downloads/expense_tracker_android/.github/workflows/deploy.yml)
+
+The workflow uses Appleboy's SSH action to connect to EC2, then executes the following operations on the server:
+
+```bash
+cd ~/expense_leakage_androidApp
+git pull origin main
+cd "flask server"
+sudo docker compose up --build -d
+sudo docker image prune -f
+```
+
+Configure these repository secrets in **GitHub > Settings > Secrets and variables > Actions**:
+
+| Secret | Value |
+| --- | --- |
+| `EC2_HOST` | Elastic IP address of the EC2 instance |
+| `EC2_USER` | SSH user for the Ubuntu instance, typically `ubuntu` |
+| `EC2_SSH_KEY` | Private SSH key used to access the EC2 instance |
+
+Never commit `EC2_SSH_KEY`, database credentials, or other secrets to the repository.
+
+### EC2 setup
+
+Before the first deployment, the EC2 instance needs Git, Docker, and Docker Compose:
+
+```bash
+sudo apt update
+sudo apt install -y git docker.io docker-compose-v2
+sudo systemctl enable --now docker
+sudo usermod -aG docker ubuntu
+```
+
+Log out and back in if Docker group permissions are added, then clone the repository into the path expected by the workflow:
+
+```bash
+cd ~
+git clone https://github.com/AgrimGangwar25/expense_leakage_androidApp.git
+cd expense_leakage_androidApp
+git checkout main
+```
+
+In the EC2 security group, allow:
+
+- SSH (TCP `22`) from the administrator's trusted IP, or another appropriately restricted source
+- Flask HTTP (TCP `5000`) from the networks that need API access
+
+The Elastic IP can then be associated with the instance for a stable public endpoint.
+
 ## Requirements
 
 ### Android development
@@ -135,17 +221,18 @@ docker compose down -v
 
 ### 2. Configure the Android API address
 
-The Android client currently sends requests to:
+The Android client currently sends requests to the deployed AWS endpoint:
 
 ```text
-http://YOUR-IP-ADDRESS/sms
+http://32.236.221.252:5000/sms
 ```
 
-Update the URL in [`CategoryActivity.kt`](C:/Users/agrim/Downloads/expense_tracker_android/app/src/main/java/com/example/expensetracker/CategoryActivity.kt) before building if the backend computer has a different LAN address.
+For a local development backend, update the URL in [`CategoryActivity.kt`](C:/Users/agrim/Downloads/expense_tracker_android/app/src/main/java/com/example/expensetracker/CategoryActivity.kt) to the appropriate LAN or emulator address.
 
 Common development values:
 
-- Physical device: use the computer's LAN IP address, for example `http://YOUR-IP-ADDRESS/sms`.
+- AWS deployment: `http://32.236.221.252:5000/sms`.
+- Physical device on a local network: use the computer's LAN IP address, for example `http://192.168.1.10:5000/sms`.
 - Android emulator: use `http://10.0.2.2:5000/sms` to reach the host computer.
 - Do not use `localhost` from a physical device; it refers to the device itself.
 
@@ -313,6 +400,12 @@ The backend uses:
 
 ### The API request fails
 
+- Confirm the EC2 instance is running and its Elastic IP is associated with the instance.
+- Confirm port `5000` is allowed by the EC2 security group and the route is not blocked by a network firewall.
+- Check a deployed health request with `curl http://32.236.221.252:5000/`.
+- For GitHub Actions failures, open the workflow run and inspect the SSH deployment logs.
+- On EC2, confirm the containers are running with `sudo docker compose ps` and inspect logs with `sudo docker compose logs -f web`.
+- Confirm the Android URL is `http://32.236.221.252:5000/sms` unless the app is intentionally using a local backend.
 - Confirm the Docker services are running with `docker compose ps`.
 - Confirm the Android device can reach the computer's LAN IP.
 - Confirm Windows Firewall allows inbound connections to port `5000`.
