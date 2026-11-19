@@ -73,7 +73,7 @@ class CategoryActivity : AppCompatActivity() {
 
                 val body = json.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
                 val request = Request.Builder()
-                    .url("http://192.168.1.116:5000/sms")
+                    .url("http://32.236.221.252:5000/sms")
                     .post(body)
                     .build()
 
