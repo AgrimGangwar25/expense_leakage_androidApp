@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime
 from flask import Flask, request, jsonify
 import psycopg2
@@ -6,7 +7,7 @@ from psycopg2.extras import RealDictCursor
 
 app = Flask(__name__)
 
-# Database connection details (Works with Docker & local PostgreSQL)
+# Database connection details
 DB_HOST = os.getenv("DB_HOST", "db")
 DB_NAME = os.getenv("DB_NAME", "expense_db")
 DB_USER = os.getenv("DB_USER", "postgres")
@@ -20,18 +21,41 @@ def get_db_connection():
         password=DB_PASS
     )
 
-# 1. Keeps your browser status check working
+def extract_clean_description(message):
+    if not message:
+        return "UPI Transaction"
+
+    # Pattern 1: HDFC multi-line format ("To MEENU BHANDARI\nOn 19/11/26...")
+    to_match = re.search(r'(?im)^To\s+([A-Za-z0-9 &._-]+?)(?:\r?\n|$)', message)
+    if to_match:
+        return to_match.group(1).strip()
+
+    # Pattern 2: Single-line formats ("...at jaggi via UPI", "...paid to Zomato", "...to Swiggy on...")
+    inline_match = re.search(
+        r'(?i)\b(?:at|to)\s+([A-Za-z0-9 &._-]+?)(?:\s+(?:via|on|using|from|ref|upi)\b|[.,\r\n]|$)',
+        message
+    )
+    if inline_match:
+        merchant = inline_match.group(1).strip()
+        if merchant.lower() not in {"your", "account", "a/c", "bank"}:
+            return merchant
+
+    # Fallback: Strip boilerplate ("Not You? Call...") and keep the first clean line
+    first_line = message.split('\n')[0].strip()
+    return first_line[:80] if first_line else "Transaction"
+
 @app.route('/', methods=['GET'])
 def index():
     return "<h1>Expense Tracker Server is Running!</h1><p>Connected to PostgreSQL and waiting for SMS data at /sms...</p>"
 
-# 2. Receives data from CategoryActivity.kt and saves it to PostgreSQL
 @app.route('/sms', methods=['POST'])
 def receive_sms():
     try:
         data = request.json
         sender = data.get('sender', 'Unknown')
-        message = data.get('message', '')
+        raw_message = data.get('message', '')
+        clean_description = extract_clean_description(raw_message)
+        
         amount = float(str(data.get('amount', 0.0)).replace(',', ''))
         is_essential = bool(data.get('isEssential', True))
         category_name = data.get('category', 'Uncategorized')
@@ -39,13 +63,12 @@ def receive_sms():
 
         print(f"\n--- New Transaction Received ---")
         print(f"From: {sender} | Amount: {amount} | Category: {category_name} | Essential: {is_essential}")
-        print(f"Message: {message}")
+        print(f"Clean Description: {clean_description}")
         print(f"--------------------------------\n")
 
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
-        # Find existing category_id or create it automatically if new
         cur.execute(
             "SELECT category_id FROM Categories WHERE LOWER(category_name) = LOWER(%s) LIMIT 1;",
             (category_name,)
@@ -61,14 +84,13 @@ def receive_sms():
             )
             category_id = cur.fetchone()['category_id']
 
-        # Save the expense into PostgreSQL
         query = """
             INSERT INTO expenses 
             (amount, description, expense_date, source, user_id, category_id, status)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING expense_id;
         """
-        cur.execute(query, (amount, message, expense_date, sender, 1, category_id, 'categorized'))
+        cur.execute(query, (amount, clean_description, expense_date, sender, 1, category_id, 'categorized'))
         new_expense_id = cur.fetchone()['expense_id']
 
         conn.commit()
@@ -78,7 +100,8 @@ def receive_sms():
         return jsonify({
             "status": "success",
             "message": "Data received and saved to PostgreSQL",
-            "expense_id": new_expense_id
+            "expense_id": new_expense_id,
+            "description": clean_description
         }), 200
 
     except Exception as e:
