@@ -1,8 +1,8 @@
 # Expense Leakage Tracker
 
-Expense Leakage Tracker is an Android application that detects transaction SMS messages, lets the user classify each transaction, and highlights non-essential spending ("leakage"). The app provides a local dashboard and history view, and can synchronise categorized transactions 24/7 to a containerized Flask and PostgreSQL backend hosted on **AWS EC2** with automated **GitHub Actions CI/CD**.
+Expense Leakage Tracker is an Android application that detects transaction SMS messages, lets the user classify each transaction, and highlights non-essential spending ("leakage"). The app provides a local dashboard and history view, and synchronizes categorized transactions to a containerized Flask API hosted on **AWS EC2** with PostgreSQL provided by **AWS RDS** and automated **GitHub Actions CI/CD**.
 
-> **Project status:** A live cloud-deployed prototype featuring an Android client in Kotlin and a Dockerized backend on AWS EC2 (`t3.micro`).
+> **Project status:** A live cloud-deployed prototype featuring an Android client in Kotlin, a Dockerized Flask backend on AWS EC2 (`t3.micro`), and an AWS RDS PostgreSQL database.
 
 ## Features
 
@@ -42,7 +42,7 @@ SmsReceiver
     |             Flask API
     |                  |
     |                  v
-    |             PostgreSQL
+    |             AWS RDS PostgreSQL
     |
     v
 MainActivity dashboard
@@ -68,7 +68,7 @@ The backend is in [`flask server/`](C:/Users/agrim/Downloads/expense_tracker_and
 - Flask application and API route in [`app.py`](C:/Users/agrim/Downloads/expense_tracker_android/flask%20server/app.py)
 - PostgreSQL schema and default category in [`init.sql`](C:/Users/agrim/Downloads/expense_tracker_android/flask%20server/init.sql)
 - Docker image definition in [`Dockerfile`](C:/Users/agrim/Downloads/expense_tracker_android/flask%20server/Dockerfile)
-- PostgreSQL and Flask services in [`docker-compose.yml`](C:/Users/agrim/Downloads/expense_tracker_android/flask%20server/docker-compose.yml)
+- Flask service and RDS environment variables in [`docker-compose.yml`](C:/Users/agrim/Downloads/expense_tracker_android/flask%20server/docker-compose.yml)
 
 ### AWS deployment
 
@@ -89,16 +89,19 @@ EC2 Elastic IP: 32.236.221.252
     +--> docker image prune -f
             |
             v
-    Flask API + PostgreSQL containers
+    Flask container
+            |
+            v
+    AWS RDS PostgreSQL
 ```
 
-The instance is assigned an AWS Elastic IP, so the public address remains stable across instance restarts and redeployments. The Flask API is exposed on port `5000`, and PostgreSQL is kept in the Docker network:
+The instance is assigned an AWS Elastic IP, so the public address remains stable across instance restarts and redeployments. The Flask API is exposed on port `5000`. PostgreSQL is no longer run in Docker Compose; it is managed by AWS RDS:
 
 | Service | Public/internal address | Purpose |
 | --- | --- | --- |
 | Flask API | `http://32.236.221.252:5000` | Receives Android expense requests |
 | Expense POST endpoint | `http://32.236.221.252:5000/sms` | Stores categorized expenses |
-| PostgreSQL | `db:5432` inside Docker Compose | Persists backend expenses |
+| AWS RDS PostgreSQL | Private RDS endpoint on TCP `5432` | Persists backend expenses |
 
 The Android client is configured to use the Elastic IP in [`CategoryActivity.kt`](C:/Users/agrim/Downloads/expense_tracker_android/app/src/main/java/com/example/expensetracker/CategoryActivity.kt).
 
@@ -156,6 +159,21 @@ In the EC2 security group, allow:
 
 The Elastic IP can then be associated with the instance for a stable public endpoint.
 
+Configure the RDS security group to allow PostgreSQL traffic (TCP `5432`) only from the EC2 instance security group. Do not expose RDS port `5432` to the public internet.
+
+### RDS setup
+
+Create or identify an AWS RDS PostgreSQL instance and database for the application. Record the RDS endpoint, database name, master/user credentials, and port. Configure the RDS security group so the EC2 application instance can connect on port `5432`.
+
+Apply the repository schema to RDS once with a PostgreSQL client:
+
+```bash
+psql "host=<RDS_ENDPOINT> port=5432 dbname=<DB_NAME> user=<DB_USER> sslmode=require" \
+  -f "flask server/init.sql"
+```
+
+The `psql` command will prompt for the database password. RDS initialization is independent of Docker Compose; redeploying or restarting the Flask container does not recreate or modify the RDS database.
+
 ## Requirements
 
 ### Android development
@@ -186,8 +204,18 @@ This starts:
 
 | Service | Address | Purpose |
 | --- | --- | --- |
-| Flask API | `http://localhost:5000` | Receives and stores categorized expenses |
-| PostgreSQL | `localhost:5433` | Persists backend expenses |
+| Flask API | `http://localhost:5000` | Receives categorized expenses and connects to RDS PostgreSQL |
+
+Docker Compose reads the RDS connection settings from its `environment` section:
+
+```text
+DB_HOST=RDS endpoint
+DB_NAME=RDS database name
+DB_USER=RDS database username
+DB_PASS=RDS database password
+```
+
+For local development, configure `docker-compose.yml` or use environment-variable substitution. Do not commit real RDS credentials. A recommended production approach is to store database credentials in AWS Systems Manager Parameter Store or AWS Secrets Manager and inject them when deploying the container.
 
 Check that the API is running:
 
@@ -213,11 +241,7 @@ Stop the backend:
 docker compose down
 ```
 
-To also remove the PostgreSQL data volume:
-
-```bash
-docker compose down -v
-```
+Stopping Docker Compose does not stop or delete the RDS database. The RDS instance and all of its data remain managed independently.
 
 ### 2. Configure the Android API address
 
@@ -320,7 +344,7 @@ The server creates a category when the submitted category does not already exist
 
 ## Database schema
 
-The PostgreSQL database is initialized by [`init.sql`](C:/Users/agrim/Downloads/expense_tracker_android/flask%20server/init.sql).
+The AWS RDS PostgreSQL database schema is defined in [`init.sql`](C:/Users/agrim/Downloads/expense_tracker_android/flask%20server/init.sql). Apply it once to RDS after creating the database; Docker Compose does not contain a PostgreSQL service or initialize an RDS database.
 
 ### `Categories`
 
@@ -381,7 +405,7 @@ The backend uses:
 - Flask
 - psycopg2-binary
 - Gunicorn
-- PostgreSQL 15
+- AWS RDS PostgreSQL
 
 ## Troubleshooting
 
@@ -412,16 +436,26 @@ The backend uses:
 - Verify that the URL in `CategoryActivity.kt` matches the selected device/emulator setup.
 - Check backend output with `docker compose logs -f web`.
 
-### PostgreSQL data is not available after restart
+### PostgreSQL data is unavailable or the API returns a database error
 
-The Compose configuration uses the named `postgres_data` volume. Do not run `docker compose down -v` unless you intentionally want to delete the database volume.
+- Confirm the RDS endpoint, database name, username, and password in the Compose environment settings.
+- Confirm the RDS security group allows inbound PostgreSQL traffic (TCP `5432`) from the EC2 or local-development network.
+- Confirm the RDS instance is available and the EC2 instance can resolve and reach the RDS endpoint.
+- Ensure [`init.sql`](C:/Users/agrim/Downloads/expense_tracker_android/flask%20server/init.sql) has been applied to the RDS database.
+- Restart the Flask container after changing database environment variables:
+
+```bash
+sudo docker compose up --build -d
+sudo docker compose logs -f web
+```
 
 ## Security and production considerations
 
 This repository is configured for local development and is not production-ready without additional hardening:
 
-- Replace the development PostgreSQL password and do not commit real credentials.
-- Configure secrets through environment variables or a secret manager.
+- Remove hard-coded RDS credentials from `docker-compose.yml` and do not commit real database passwords.
+- Configure RDS credentials through environment variables or a secret manager.
+- Restrict RDS access to trusted application hosts and do not expose port `5432` publicly.
 - Replace cleartext HTTP with HTTPS.
 - Move the API URL out of source code.
 - Add authentication and authorization to the API.
